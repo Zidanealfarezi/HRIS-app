@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum EmployeeStatus {
+  AKTIF
+  CUTI
+  DIBERHENTIKAN
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  REMOTE_WORK
+  UNPAID
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AttendanceStatus {
+  HADIR
+  ABSEN
+  TERLAMBAT
+  IZIN
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  password   String
+  role       Role     @default(EMPLOYEE)
+  employeeId Int?     @unique
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+  auditLogs  AuditLog[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Employee {
+  id          Int              @id @default(autoincrement())
+  name        String
+  position    String
+  department  String
+  status      EmployeeStatus   @default(AKTIF)
+  location    String?
+  joinDate    DateTime
+  avatar      String?
+  phone       String?
+  email       String?
+  bankAccount String?
+  npwp        String?
+  leaveBalance Int             @default(12)
+
+  user           User?
+  leaveRequests  LeaveRequest[]
+  attendances    Attendance[]
+  payrollRecords PayrollRecord[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@map("employees")
+}
+
+model LeaveRequest {
+  id          Int         @id @default(autoincrement())
+  employeeId  Int
+  employee    Employee    @relation(fields: [employeeId], references: [id])
+  type        LeaveType
+  startDate   DateTime
+  endDate     DateTime
+  days        Int
+  reason      String?
+  status      LeaveStatus @default(PENDING)
+  approvedBy  String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("leave_requests")
+}
+
+model Attendance {
+  id         Int              @id @default(autoincrement())
+  employeeId Int
+  employee   Employee         @relation(fields: [employeeId], references: [id])
+  date       DateTime
+  checkIn    DateTime?
+  checkOut   DateTime?
+  status     AttendanceStatus @default(HADIR)
+  createdAt  DateTime         @default(now())
+
+  @@unique([employeeId, date])
+  @@map("attendances")
+}
+
+model PayrollRecord {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  period      String
+  periodStart DateTime
+  periodEnd   DateTime
+  baseSalary  Decimal  @db.Decimal(15, 2)
+  allowances  Json
+  deductions  Json
+  netPay      Decimal  @db.Decimal(15, 2)
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@map("payroll_records")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  target    String
+  targetId  Int?
+  details   Json?
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
